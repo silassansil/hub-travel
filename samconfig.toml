@@ -1,0 +1,10 @@
+version = 0.1
+[default]
+[default.deploy]
+[default.deploy.parameters]
+stack_name = "hub-travel"
+s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-1u9wnssqncyfy"
+s3_prefix = "hub-travel"
+region = "sa-east-1"
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "TABLEAGENCY=\"Agency\" TABLEEXCURSION=\"Excursion\" REGION=\"sa-east-1\""

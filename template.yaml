@@ -1,0 +1,220 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  hub-travel
+
+  Sample SAM Template for hub-travel
+
+Globals:
+  Api:
+    Cors:
+      AllowMethods: "'*'"
+      AllowHeaders: "'*'"
+      AllowOrigin: "'*'"
+  Function:
+    Timeout: 20
+
+Parameters:
+  TABLEAGENCY:
+    Type: String
+    Default: Agency
+  TABLEEXCURSION:
+    Type: String
+    Default: Excursion
+  TABLERESERVATION:
+    Type: String
+    Default: Reservation
+  REGION:
+    Type: String
+    Default: sa-east-1
+
+Resources:
+  ApiGatewayApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: dev
+  
+  ##############################
+  ## Lambda Layers
+  ##############################
+  SharedModules:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      ContentUri: shared
+      CompatibleRuntimes:
+        - python3.8
+    Metadata:
+      BuildMethod: python3.8
+
+  ##############################
+  ## Agency
+  ##############################
+  RegistrationAgencyFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/registration_agency
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Layers:
+        - !Ref SharedModules
+      Events:
+        RegistrationAgencyApi:
+          Type: Api
+          Properties:
+            Path: /agencies
+            Method: post
+            RestApiId: !Ref ApiGatewayApi
+      Policies:
+        - DynamoDBWritePolicy:
+            TableName: !Ref AgencyTable
+  ListAllAgenciesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/list_all_agencies
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Layers:
+        - !Ref SharedModules
+      Events:
+        FindAllAgenciesApi:
+          Type: Api
+          Properties:
+            Path: /agencies
+            Method: get
+            RestApiId: !Ref ApiGatewayApi
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref AgencyTable
+  FindAgencyByIdFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/find_agency_by_id
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Layers:
+        - !Ref SharedModules
+      Events:
+        FindAgencyByIdApi:
+          Type: Api
+          Properties:
+            Path: /agencies/{agencyId}
+            Method: get
+            RestApiId: !Ref ApiGatewayApi
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref AgencyTable
+  BookingExcursionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/booking_excursion
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Layers:
+        - !Ref SharedModules
+      Events:
+        BookingExcursionApi:
+          Type: Api
+          Properties:
+            Path: /agencies/{agencyId}/excursions
+            Method: put
+            RestApiId: !Ref ApiGatewayApi
+      Policies:
+        - DynamoDBWritePolicy:
+            TableName: !Ref ExcursionTable
+  ListAllExcursionsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/list_all_excursions
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Layers:
+        - !Ref SharedModules
+      Events:
+        BookingExcursionApi:
+          Type: Api
+          Properties:
+            Path: /agencies/excursions
+            Method: get
+            RestApiId: !Ref ApiGatewayApi
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref ExcursionTable
+  PreReservationExcursionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/pre_reservation_excursion
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Layers:
+        - !Ref SharedModules
+      Events:
+        BookingExcursionApi:
+          Type: Api
+          Properties:
+            Path: /agencies/{agencyId}/excursions/{excursionId}/prereserve
+            Method: put
+            RestApiId: !Ref ApiGatewayApi
+      Policies:
+        - DynamoDBWritePolicy:
+            TableName: !Ref ReservationTable
+
+  ##############################
+  ## Dynamo
+  ##############################
+  AgencyTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        -
+          AttributeName: "id"
+          AttributeType: "S"
+      KeySchema:
+        -
+          AttributeName: "id"
+          KeyType: "HASH"
+      ProvisionedThroughput:
+        ReadCapacityUnits: "1"
+        WriteCapacityUnits: "1"
+      TableName: "Agency"
+  ExcursionTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TimeToLiveSpecification:
+        AttributeName: "date"
+        Enabled: "true"
+      AttributeDefinitions:
+        -
+          AttributeName: "id"
+          AttributeType: "S"
+        - AttributeName: "date"
+          AttributeType: "N"
+      KeySchema:
+        -
+          AttributeName: "id"
+          KeyType: "HASH"
+        -
+          AttributeName: "date"
+          KeyType: "RANGE"
+      ProvisionedThroughput:
+        ReadCapacityUnits: "1"
+        WriteCapacityUnits: "1"
+      TableName: "Excursion"
+  ReservationTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        -
+          AttributeName: "id"
+          AttributeType: "S"
+      KeySchema:
+        -
+          AttributeName: "id"
+          KeyType: "HASH"
+      ProvisionedThroughput:
+        ReadCapacityUnits: "1"
+        WriteCapacityUnits: "1"
+      TableName: "Reservation"
+Outputs:
+  RegistrationAgencyApi:
+    Description: "API Gateway endpoint URL for Prod stage for Hello World function"
+    Value: !Sub "https://${ApiGatewayApi}.execute-api.${AWS::Region}.amazonaws.com"
